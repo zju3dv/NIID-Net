@@ -1,4 +1,11 @@
 # NIID-Net: Adapting Surface Normal Knowledge for Intrinsic Image Decomposition in Indoor Scenes
+[[paper]](https://ieeexplore.ieee.org/document/9199573) 
+[[presentation]](https://youtu.be/EmulMTr2RQk)
+[[demo]](https://youtu.be/0MadIlfqles) 
+[[supplement (coming soon)]]()
+
+![architecture](./assets/NIID-Net.png)
+
 
 Dependencies
 -
@@ -51,7 +58,7 @@ Running
       gpu_devices # the indexes of GPU devices, or set None to run CPU version 
       batch_size_intrinsics # batch size for training on the CGIntrinsics dataset
     ```
-  + Note that the codes can only run on the CPU in the test mode (with ```gpu_devices=None```). 
+  + Note that only test mode supports CPU version (with ```gpu_devices=None```). 
   We recommend you to use the **GPU** version.
 + ##### Pre-trained model
     [Google Drive](https://drive.google.com/file/d/160NzDEmC8okb6vgTNTyzmhaYa-Lqo-Ft/view?usp=sharing)
@@ -66,6 +73,12 @@ Running
 + ##### Train
   + (coming soon...)
 
+Results
+- 
++ Comparison
+![comparison](./assets/comparison.jpg)
++ Image sequence editing
+![editing](./assets/demo1.jpg)
 
 Acknowledgements
 -
@@ -114,4 +127,4 @@ Copyright
 
 Contact
 -
-Please open an issue or contact Jundan Luo <luojundan@zju.edu.cn> if you have any questions or any feedback.
+Please open an issue or contact Jundan Luo (<luojundan@zju.edu.cn>) if you have any questions or any feedback.
