@@ -105,7 +105,7 @@ def get_precision_recall_list_new(predict_IID, pixel_labels_dir, thres_list, pho
     ]
 
     if use_subset:
-        photo_ids = photo_ids[::10]
+        photo_ids = photo_ids[::15]
 
     count = 0 
     total_num_img = len(photo_ids)
@@ -132,7 +132,8 @@ def get_precision_recall_list_new(predict_IID, pixel_labels_dir, thres_list, pho
                 'input_srgb': saw_img,
                 'rendered_img': rendered_img_np})
         pred_S_np = np.mean(pred_S_np, axis=2)
-        pred_S_np = resize(pred_S_np, (original_h, original_w), order=1, preserve_range=True)
+        pred_S_np = resize(pred_S_np, (original_h, original_w), order=1, preserve_range=True,
+                           mode='constant', anti_aliasing=False)
 
         # Save hdf5 file
         # pred_R_np = resize(pred_R_np, (original_h, original_w), order=1, preserve_range=True)

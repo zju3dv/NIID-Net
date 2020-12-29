@@ -143,6 +143,35 @@ def save_intrinsic_images(path, pred_images, label=None, individual=False):
         save_srgb_image(vis_merge, path, label+'_result.png')
 
 
+def save_normal_images(path, filename, input_srgb, normal_gt, normal_pred, normal_mask=None):
+    # Input RGB
+    srgb = input_srgb.cpu()
+    srgb = 255 * np.transpose(np.squeeze(srgb.numpy()), (1, 2, 0))  # H, W, C
+
+    # Normal target
+    normal_gt = 255 * (-normal_gt+1) / 2.0
+    if normal_mask is not None:
+        normal_gt *= normal_mask
+    normal_gt = np.transpose(normal_gt.cpu().numpy(), (1, 2, 0))
+
+    # Normal prediction
+    normal_pred = normal_pred / (torch.norm(normal_pred, p=2, dim=0, keepdim=True) + 1e-6)
+    normal_pred = normal_pred.cpu()
+    normal_pred = 255 * (-normal_pred+1) / 2.0
+    normal_pred = np.transpose(normal_pred.numpy(), (1, 2, 0))
+
+    # Merge
+    img_merge = np.hstack([srgb, normal_gt, normal_pred])
+
+    # Save image
+    img_merge = Image.fromarray(img_merge.astype('uint8'))
+    if path is not None:
+        if not os.path.exists(path):
+            os.makedirs(path)
+        filename = os.path.join(path, filename)
+    img_merge.save(filename)
+
+
 
 
 

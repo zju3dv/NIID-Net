@@ -38,10 +38,10 @@ def CreateDataLoaderRender(_root, _list_dir, _batch_size=1, _num_workers=1):
     return data_loader
 
 
-def CreateDataLoaderIIWTest(_root, _list_dir, mode, _batch_size=16, _num_workers=1):
+def CreateDataLoaderIIWTest(_root, _list_dir, mode, _batch_size=16, _num_workers=1, use_subset=False):
     data_loader = None
     from data.intrinsics.aligned_data_loader import IIWTESTDataLoader
-    data_loader = IIWTESTDataLoader(_root, _list_dir, mode, _batch_size, _num_workers)
+    data_loader = IIWTESTDataLoader(_root, _list_dir, mode, _batch_size, _num_workers, use_subset)
 
     return data_loader
 

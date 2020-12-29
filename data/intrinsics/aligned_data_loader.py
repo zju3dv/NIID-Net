@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import torch.utils.data
+from torch.utils.data.sampler import Sampler
 from data.intrinsics.base_data_loader import BaseDataLoader
 from data.intrinsics.image_folder import *
 import scipy.io as sio
@@ -477,14 +478,35 @@ class RenderDataLoader(BaseDataLoader):
         return len(self.dataset)
 
 
+class SubsetSampler(Sampler):
+    """Samples elements from a given list of indices, without replacement.
+
+    Arguments:
+        indices (list): a list of indices
+    """
+
+    def __init__(self, indices):
+        self.indices = indices
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
+
+
 class IIWTESTDataLoader(BaseDataLoader):
-    def __init__(self,_root, _list_dir, mode, _batch_size, _num_workers):
+    def __init__(self,_root, _list_dir, mode, _batch_size, _num_workers, use_subset):
 
         transform = None
         dataset = IIW_ImageFolder(root=_root, \
                 list_dir =_list_dir, mode= mode, is_flip = False, transform=transform)
-
-        data_loader = torch.utils.data.DataLoader(dataset, batch_size=_batch_size, shuffle= False, num_workers=_num_workers)
+        if use_subset:
+            subset_sampler = SubsetSampler(list(range(0, len(dataset), 5)))
+            data_loader = torch.utils.data.DataLoader(dataset, batch_size=_batch_size, shuffle= False, 
+                                                      num_workers=_num_workers, sampler=subset_sampler)
+        else:
+            data_loader = torch.utils.data.DataLoader(dataset, batch_size=_batch_size, shuffle= False, num_workers=_num_workers)
         self.dataset = dataset
         self.iiw_data = IIWTestData(data_loader)
 

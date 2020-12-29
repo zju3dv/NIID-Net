@@ -30,13 +30,14 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
 
+from config import CriteriaTypes
 from models.niid_net import NIIDNet
+from loss import criteria_intrinsic
 
 
 class TrainState(object):
     isTraining = None  # current training state
-    optim_NEM_coarse = None
-    optim_NEM_refine = None
+    optim_NEM = None
     optim_IID = None
     optimizer = None
     scheduler = None
@@ -59,6 +60,9 @@ class NIIDNetManager(object):
         # Define Model
         self.model = NIIDNet()
 
+        # Criterion(metrics)
+        self.IID_criterion = criteria_intrinsic.CGIntrinsics_Criterion()
+
         # GPU
         self.gpu_devices = opt.gpu_devices
         if self.gpu_devices is None:
@@ -70,6 +74,7 @@ class NIIDNetManager(object):
             print('\nGPU_devices: %s' % self.gpu_devices)
             self.data_gpu = self.gpu_devices[0]
             self.model = torch.nn.DataParallel(self.model.cuda(self.data_gpu), device_ids=self.gpu_devices)
+            self.IID_criterion.cuda(self.data_gpu)
 
         # Load pre-trained model and set optimizer
         self.reset_train_mode(opt)
@@ -102,7 +107,7 @@ class NIIDNetManager(object):
         print('\nLoading models from: %s' % file_path)
 
         if os.path.isfile(file_path):
-            checkpoint = torch.load(file_path, map_location=lambda storage, loc: storage) # load in CPU memory
+            checkpoint = torch.load(file_path, map_location=lambda storage, loc: storage)  # load in CPU memory
         else:
             print("=> no checkpoint found at '{}'. Loading failed!".format(file_path))
             return
@@ -151,8 +156,8 @@ class NIIDNetManager(object):
         old_isTrain = self.train_state.isTraining
         if (old_isTrain is None) or (not old_isTrain):
             NEM_coarse_model, NEM_refine_model, IID_Net = self._get_framework_components()
-            NEM_coarse_model.train(self.train_state.optim_NEM_coarse)
-            NEM_refine_model.train(self.train_state.optim_NEM_refine)
+            NEM_coarse_model.train(self.train_state.optim_NEM)
+            NEM_refine_model.train(self.train_state.optim_NEM)
             if self.train_state.optim_IID is not None:
                 if self.train_state.optim_IID == 'full':
                     IID_Net.train(True)
@@ -179,7 +184,7 @@ class NIIDNetManager(object):
             self.train_state.isTraining = False
         return {'flag': old_isTrain}
 
-    def save(self, path, label, epoch=None, nyu_val=None, iiw_val=None, saw_sub_val=None,
+    def save(self, path, label, epoch=None, nyu_val=None, iiw_val=None, saw_val=None,
              best_normal=False, best_IID=False):
         NEM_coarse_model, NEM_refine_model, IID_Net = self._get_framework_components()
         checkpoint = {
@@ -191,7 +196,7 @@ class NIIDNetManager(object):
 
             'nyu_val': nyu_val,
             'iiw_val': iiw_val,
-            'saw_sub_val': saw_sub_val,
+            'saw_val': saw_val,
             # 'optimizer': self.optimizer.state_dict() if self.optimizer is not None else None,
         }
         if not os.path.exists(path):
@@ -229,21 +234,14 @@ class NIIDNetManager(object):
         learning_rate = opt.lr
         optim_params = []
 
-        if opt.optim_NEM_coarse:
-            optim_params.append({'params': NEM_coarse_model.parameters(),
+        if opt.optim_NEM:
+            optim_params.append({'params': chain(NEM_coarse_model.parameters(),
+                                                 NEM_refine_model.parameters()),
                                  'lr': learning_rate,
-                                 'name': 'NEM_coarse_net'})
-            print('    parameters from NEM_coarse_model, lr %f' % learning_rate)
-        for param in NEM_coarse_model.parameters():
-            param.requires_grad = opt.optim_NEM_coarse
-
-        if opt.optim_NEM_refine:
-            optim_params.append({'params': NEM_refine_model.parameters(),
-                                 'lr': learning_rate,
-                                 'name': 'NEM_refine_net'})
-            print('    parameters from NEM_refine_model, lr %f' % learning_rate)
-        for param in NEM_refine_model.parameters():
-            param.requires_grad = opt.optim_NEM_refine
+                                 'name': 'NEM'})
+            print('    parameters from NEM, lr %f' % learning_rate)
+        for param in chain(NEM_coarse_model.parameters(), NEM_refine_model.parameters()):
+            param.requires_grad = opt.optim_NEM
 
         for param in IID_Net.parameters():
             param.requires_grad = opt.optim_IID is not None
@@ -284,8 +282,7 @@ class NIIDNetManager(object):
         # print('    lr:%.6f, weight_decay:%.6f' % (option.lr, option.weight_decay))
         scheduler, sd_type = self._define_lr_scheduler(optimizer, option)
 
-        self.train_state.optim_NEM_coarse = opt.optim_NEM_coarse
-        self.train_state.optim_NEM_refine = opt.optim_NEM_refine
+        self.train_state.optim_NEM = opt.optim_NEM
         self.train_state.optim_IID = opt.optim_IID
         self.train_state.optimizer = optimizer
         self.train_state.scheduler = scheduler
@@ -294,6 +291,53 @@ class NIIDNetManager(object):
     def _forward(self, input_srgb, pred_normal, pred_reflect, pred_shading):
         out_N, out_R, out_L, out_S, rendered_img = self.model(input_srgb, pred_normal, pred_reflect, pred_shading)
         return out_N, out_R, out_L, out_S, rendered_img
+
+    def optimize(self, inputs, targets, criteria_label, data_set_name):
+        # switch to train mode
+        self.switch_to_train()
+
+        # Input Data
+        input_srgb = Variable(inputs['input_srgb'].float().cuda(self.data_gpu), requires_grad=False)
+
+        # Forward
+        optimizer = self.train_state.optimizer
+        optimizer.zero_grad()
+        N, R, L, S, rendered_img = self._forward(input_srgb,
+                                                 pred_normal=True,
+                                                 pred_reflect=CriteriaTypes.train_reflectance(criteria_label),
+                                                 pred_shading=CriteriaTypes.train_shading(criteria_label))
+        # torch.save({
+        #     'pred_N': N,
+        #     'pred_L': L,
+        #     'pred_S': S,
+        #     'rendered_img': rendered_img,
+        #     'targets': targets
+        # }, 'test_batch.pth.tar')
+        # if self.cnt % 10 == 0:
+        #     Visualizer.vis.img_many({
+        #         'input_srgb': input_srgb.data.cpu()[0, :, :, :],
+        #         'rgb_img': targets['rgb_img'].float()[0, :, :, :],
+        #         'R_pred': torch.clamp(R.data.cpu()[0, :, :, :], 0, 1),
+        #         'rerendered_img': torch.clamp(rendered_img.data.cpu()[0, :, :, :], 0, 1),
+        #     })
+        #     self.cnt = 0
+        # self.cnt += 1
+
+        # Backward
+        if not CriteriaTypes.is_valid(criteria_label):
+            raise Exception('The criteria label [%s] is not supported' % criteria_label)
+        if CriteriaTypes.train_surface_normal(criteria_label):
+            pass
+        else:
+            targets_var = {k: Variable(targets[k].float().cuda(self.data_gpu), requires_grad=False)
+                           for k in targets if torch.is_tensor(targets[k])}
+            loss = self.IID_criterion(input_srgb, N, R, L, S, targets_var,
+                                      not CriteriaTypes.warm_up_shading(criteria_label),
+                                      CriteriaTypes.train_reflectance(criteria_label),
+                                      CriteriaTypes.train_shading(criteria_label))
+        loss.backward()
+        optimizer.step()
+        return loss.data[0]
 
     def predict(self, inputs, normal=False, IID=False):
         # switch to eval mode

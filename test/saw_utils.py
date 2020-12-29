@@ -82,7 +82,8 @@ def resize_img_arr(srgb_img):
     else:
         h, w = 384, 384
 
-    srgb_img = skimage.transform.resize(srgb_img, (h, w), order=1, preserve_range=True)
+    srgb_img = skimage.transform.resize(srgb_img, (h, w), order=1, preserve_range=True,
+                                        mode='constant', anti_aliasing=False)
 
     return srgb_img
 

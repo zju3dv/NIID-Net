@@ -109,7 +109,7 @@ class CGIntrinsicsImageFolder(data.Dataset):
 
         # img = rotate(img,random_angle, order = mode)
         img = img[random_pos[0]:random_pos[1], random_pos[2]:random_pos[3], :]
-        img = resize(img, (self.height, self.width), order = mode)
+        img = resize(img, (self.height, self.width), order=mode, mode='constant', anti_aliasing=False)
 
         return img
 
@@ -284,7 +284,7 @@ class Render_ImageFolder(data.Dataset):
 
         # img = rotate(img,random_angle, order = mode)
         img = img[random_pos[0]:random_pos[1], random_pos[2]:random_pos[3], :]
-        img = resize(img, (h, w), order = mode)
+        img = resize(img, (h, w), order=mode, mode='constant', anti_aliasing=False)
 
         return img
 
@@ -495,7 +495,7 @@ class IIW_ImageFolder(data.Dataset):
 
         # img = img[random_pos[0]:random_pos[1], random_pos[2]:random_pos[3], :]
 
-        img = resize(img, (self.height, self.width), order = mode)
+        img = resize(img, (self.height, self.width), order=mode, mode='constant', anti_aliasing=False)
 
         return img
 
@@ -523,7 +523,7 @@ class IIW_ImageFolder(data.Dataset):
         img = np.float32(io.imread(img_path))/ 255.0
         oringinal_shape = img.shape
 
-        img = resize(img, (self.height, self.width))
+        img = resize(img, (self.height, self.width), mode='constant', anti_aliasing=False)
 
         random_filp = random.random()
 
@@ -670,7 +670,7 @@ class SAW_ImageFolder(data.Dataset):
 
         # img = rotate(img,random_angle, order = mode)
         img = img[random_pos[0]:random_pos[1], random_pos[2]:random_pos[3], :]
-        img = resize(img, (self.height, self.width), order = mode)
+        img = resize(img, (self.height, self.width), order=mode, mode='constant', anti_aliasing=False)
 
         return img
 

@@ -28,6 +28,35 @@ import warnings
 import torch
 
 
+class CriteriaTypes(object):
+    normal = 0
+    warm_up = 1
+    shading_warm_up = 2
+    shading = 3
+    reflectance = 4
+    IID = 5
+
+    @classmethod
+    def is_valid(cls, label):
+        return label in [cls.normal, cls.warm_up, cls.shading_warm_up, cls.shading, cls.reflectance, cls.IID]
+
+    @classmethod
+    def train_shading(cls, label):
+        return label in [cls.warm_up, cls.shading_warm_up, cls.shading, cls.IID]
+
+    @classmethod
+    def train_reflectance(cls, label):
+        return label in [cls.warm_up, cls.reflectance, cls.IID]
+
+    @classmethod
+    def train_surface_normal(cls, label):
+        return label in [cls.normal]
+
+    @classmethod
+    def warm_up_shading(cls, label):
+        return label in [cls.warm_up, cls.shading_warm_up]
+
+
 class DefaultConfig(object):
     # Checkpoints dir (default)
     checkpoints_dir = './checkpoints/'
@@ -72,21 +101,23 @@ class DefaultConfig(object):
     def parse(self, kwargs):
         """ Update configuration according to kwargs
         """
-        print('\n')
+        print('\nUpdate config:')
         for k, v in kwargs.items():
             # GPU NUM
             if k == 'gpu_num':
                 self.gpu_devices = [n + torch.cuda.current_device() for n in range(int(v))]
+                print('    gpu_devices: %s' % self.gpu_devices)
                 continue
 
             if not hasattr(self, k):
                 warnings.warn("Warning: opt has not attribut %s" % k)
             setattr(self, k, v)
+            print('    %s: %s' % (k, v))
 
-        print('user config:')
-        for k, v in self.__class__.__dict__.items():
-            if not k.startswith('__'):
-                print(k, getattr(self, k))
+        # print('user config:')
+        # for k, v in self.__class__.__dict__.items():
+        #     if not k.startswith('__'):
+        #         print(k, getattr(self, k))
         print('\n')
 
 
@@ -109,15 +140,15 @@ class TrainIIDOptions(DefaultConfig):
 
     # Train
     isTrain = True
-    train_epoch = 40
+    train_epoch = 50
     iter_each_epoch = None
+    criteria = None
 
     # Optimizer
     use_SGD = False
     lr = 1e-4  # default learning rate
     weight_decay = 0e-4
-    optim_NEM_coarse = False
-    optim_NEM_refine = False
+    optim_NEM = False
     optim_IID = 'wo_R'  # None, 'full', 'wo_R' (train without the R decoder), 'R' (only R decoder)
 
     # Scheduler
@@ -129,3 +160,32 @@ class TrainIIDOptions(DefaultConfig):
 
     # Visualization
     env = 'NIID-Net_train_IIDNet'
+
+
+class TrainNormalOptions(DefaultConfig):
+    # Pretrained
+    load_pretrained_NEM = True
+    load_pretrained_IID_Net = False
+
+    # Train
+    isTrain = True
+    train_epoch = 50
+    iter_each_epoch = None
+    criteria = CriteriaTypes.normal
+
+    # Optimizer
+    use_SGD = False
+    lr = 5e-5  # default learning rate
+    weight_decay = 1e-4
+    optim_NEM = True
+    optim_IID = None
+
+    # Scheduler
+    scheduler_type = 'plateau'
+    scheduler_mode = 'max'
+    lr_decay = 0.5
+    sd_patience = 5
+    min_lr = 1e-8
+
+    # Visualization
+    env = 'NIID-Net_train_NEM'

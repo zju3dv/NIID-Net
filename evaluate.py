@@ -36,19 +36,16 @@ from utils import pytorch_settings
 import utils.visualize as V
 
 
-def validate_iiw(model, opt, list_name, full_root, display_process=True, visualize_dir=None, label='val_iiw',
-                 visualize_interval=1):
+def validate_iiw(model, opt, use_test_split,
+                 display_process=True, visualize_dir=None, label='val_iiw', visualize_interval=1, use_subset=False):
     """Evaluate reflectance estimation of the model
 
     :param model:
     :param opt:
         configuration
-    :param list_name:
-        the directory for split file
-        train split: 'train_list/'
-        test split: 'test_list/'
-    :param full_root:
-        root directory for datasets
+    :param use_test_split:
+        True: test split
+        False: train split
     :param display_process:
         print the evaluation process or not
     :param visualize_dir:
@@ -57,10 +54,15 @@ def validate_iiw(model, opt, list_name, full_root, display_process=True, visuali
         prefix of the name of the output file
     :param visualize_interval:
         visualize one sample every [visualize_interval] input
+    :param use_subset:
+        evaluate on a subset or not
     """
-
+    
     print("============================= Validation ON IIW============================")
     print('batch size in validate_iiw: iiw %d' % opt.batch_size_iiw)
+
+    full_root = opt.dataset_root
+    list_name = 'test_list/' if use_test_split else 'train_list/'
 
     total_loss =0.0
     total_loss_eq =0.0
@@ -76,7 +78,8 @@ def validate_iiw(model, opt, list_name, full_root, display_process=True, visuali
         test_list_dir = full_root + '/CGIntrinsics/IIW/' + list_name
         data_loader_iiw_TEST = intrinsics_data_loader.CreateDataLoaderIIWTest(full_root, test_list_dir, j,
                                                                               _batch_size=opt.batch_size_iiw,
-                                                                              _num_workers=opt.num_workers_intrinsics)
+                                                                              _num_workers=opt.num_workers_intrinsics,
+                                                                              use_subset=use_subset)
         dataset_iiw_test = data_loader_iiw_TEST.load_data()
 
         for i, data_iiw in enumerate(dataset_iiw_test):
@@ -137,8 +140,9 @@ def test_IIW(**kwargs):
     model = create_model(opt)
     model.switch_to_eval()
 
-    WHDR, WHDR_EQ, WHDR_INEQ = validate_iiw(model, opt, 'test_list/', opt.dataset_root,
-                                            True, output_dir, label='test_iiw', visualize_interval=visualize_interval)
+    WHDR, WHDR_EQ, WHDR_INEQ = validate_iiw(model, opt, True,
+                                            True, output_dir, label='test_iiw', visualize_interval=visualize_interval,
+                                            use_subset=False)
     print('Test IIW: WHDR %f' % WHDR)
 
 
@@ -148,12 +152,16 @@ def save_plot_arr(path, plot_arr):
     hdf5_file_write.close()
 
 
-def validate_saw(model, full_root, mode, display_process=True, visualize_dir=None, label='val_saw', samples=0, use_subset=False):
+def validate_saw(model, full_root, use_test_split, mode,
+                 display_process=True, visualize_dir=None, label='val_saw', samples=0, use_subset=False):
     """ Evaluate shading estimation of the model
 
     :param model:
     :param full_root:
         root directory for datasets
+    :param use_test_split:
+        True: test split
+        False: train split
     :param mode:
         0 : unweighted precision (P(u))
         1 : challenge precision (P(c))
@@ -166,7 +174,7 @@ def validate_saw(model, full_root, mode, display_process=True, visualize_dir=Non
     :param samples:
         number of samples that will be visualized and saved
     :param use_subset:
-        only evaluate on a subset of SAW test set or not
+        evaluate on a subset or not
     :return:
         AP result
     """
@@ -178,7 +186,7 @@ def validate_saw(model, full_root, mode, display_process=True, visualize_dir=Non
                        'CGIntrinsics/SAW/saw_pixel_labels/saw_data-filter_size_0-ignore_border_0.05-normal_gradmag_thres_1.5-depth_gradmag_thres_2.0'
     splits_dir = full_root + 'CGIntrinsics/SAW/saw_splits/'
     img_dir = full_root + "CGIntrinsics/SAW/saw_images_512/"
-    dataset_split = 'E'  # test split
+    dataset_split = 'E' if use_test_split else 'R'
     class_weights = [1, 1, 2]
     bl_filter_size = 10
 
@@ -241,7 +249,7 @@ def test_SAW(mode=1, **kwargs):
     model = create_model(opt)
     model.switch_to_eval()
 
-    AP = validate_saw(model, opt.dataset_root, mode, True, output_dir, output_label,
+    AP = validate_saw(model, opt.dataset_root, True, mode, True, output_dir, output_label,
                       samples=num_visualized_sample, use_subset=False)
     print("Test SAW mode %d: AP %f" % (mode, AP))
 
@@ -252,10 +260,8 @@ if __name__ == '__main__':
         'offline': True,
         'batch_size_iiw': 8,
         'num_workers_intrinsics': 1,
-        'gpu_devices': [0],
+        'gpu_devices': [0,],
     }
 
     test_IIW(**params)
     test_SAW(mode=1, **params)
-    # test_SAW(mode=0, **params)
-
