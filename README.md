@@ -1,8 +1,8 @@
 # NIID-Net: Adapting Surface Normal Knowledge for Intrinsic Image Decomposition in Indoor Scenes
 [[paper]](https://ieeexplore.ieee.org/document/9199573) 
+[[supplement]](http://www.cad.zju.edu.cn/home/gfzhang/papers/NIID-Net/NIID-Net-supple.pdf)
 [[presentation]](https://youtu.be/EmulMTr2RQk)
 [[demo]](https://youtu.be/0MadIlfqles) 
-[[supplement (coming soon)]]()
 
 ![architecture](./assets/NIID-Net.png)
 
@@ -68,10 +68,10 @@ Running
   + ```python decompose.py```
   + The default input and output directory is ```./examples/```
 + ##### Test
-  + ```python test.py```
+  + ```python evaluate.py```
   + The default output directory is ```./checkpoints/```
 + ##### Train
-  + (coming soon...)
+  + ```python train_IID.py```
 
 Results
 - 
