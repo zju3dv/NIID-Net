@@ -73,11 +73,23 @@ Running
 + ##### Train
   + ```python train_IID.py```
 
+
 Results
 - 
-+ Comparison
+#### Precomputed results
+- We provide visualized output on the SAW test set:
+[SAW_pred_imgs.zip](https://drive.google.com/file/d/18LI7CgTW0tVglF0u3Nirp1kZxca25iDJ/view?usp=sharing).
+And precision-recall measurements 
+([precision-recall_curves.zip](https://drive.google.com/file/d/1WhxxN5sSVLLoet1ruk9VHzh_r-WhfRfs/view?usp=sharing))
+which can be used to draw the precision-recall curves. 
+- If you want to compare on some applications (e.g., image editing), we strongly recommend using the original float32 output of the network
+instead of the 8-bit low-precision visualized images.
+
+
+#### Comparison
 ![comparison](./assets/comparison.jpg)
-+ Image sequence editing
+
+#### Image sequence editing
 ![editing](./assets/demo1.jpg)
 
 Acknowledgements
