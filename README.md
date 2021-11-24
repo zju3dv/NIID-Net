@@ -20,7 +20,7 @@ Datasets
 #### Intrinsic image datasets
 + Follow [CGIntrinsics](https://github.com/zhengqili/CGIntrinsics) to download CGI, IIW and SAW datasets. 
 Note that Z. Li and N. Snavely augment the original [IIW](http://opensurfaces.cs.cornell.edu/intrinsic/#) and [SAW](http://opensurfaces.cs.cornell.edu/saw/) datasets.
-+ You may not download the CGI dataset if you are not going to train the model.
++ You do not need to download the CGI dataset if you are not going to train the model.
 + Put the datasets in the ```./dataset/``` folder. The final directory structure:
     ```
     NIID-Net project
@@ -42,6 +42,15 @@ Note that Z. Li and N. Snavely augment the original [IIW](http://opensurfaces.cs
                 |---saw_splits
                 |---train_list
     ```
+
+#### Depth/surface normal dataset
++ Follow [Revisiting_Single_Depth_Estimation](https://github.com/JunjH/Revisiting_Single_Depth_Estimation) to 
+download their extracted NYU-v2 subset.
++ Unzip ```data.zip``` and rename the directory as ```NYU_v2```
++ To compute surface normal maps,
+  + install ```open3d==0.8.0``` 
+  + ```python ./tools/data_preprocess_normal.py --dataset_dir {NYU_v2 dataset path}  --num_workers {number of processes}```
+
 
 Running
 -
@@ -139,4 +148,4 @@ Copyright
 
 Contact
 -
-Please open an issue or contact Jundan Luo (<luojundan@zju.edu.cn>) if you have any questions or any feedback.
+Please open an issue or contact Jundan Luo (<jl3752@bath.ac.uk>) if you have any questions or any feedback.
