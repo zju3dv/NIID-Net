@@ -1,19 +1,23 @@
 # NIID-Net: Adapting Surface Normal Knowledge for Intrinsic Image Decomposition in Indoor Scenes
 [[paper]](https://ieeexplore.ieee.org/document/9199573) 
 [[supplement]](http://www.cad.zju.edu.cn/home/gfzhang/papers/NIID-Net/NIID-Net-supple.pdf)
-[[presentation]](https://youtu.be/EmulMTr2RQk)
+[[presentation]](https://youtu.be/BvoYwCdzoZU)
 [[demo]](https://youtu.be/0MadIlfqles) 
 
 ![architecture](./assets/NIID-Net.png)
 
 
+Updates
+-
++ 16/April/2023: Migrated to Pytorch 1.7.1
+
 Dependencies
 -
-+ Python 3.5
-+ PyTorch 0.3.1 (read [Migration Guide](https://pytorch.org/blog/pytorch-0_4_0-migration-guide/) if you use PyTorch > 0.3.1)
-+ torchvision 0.2.1
++ Python 3.6
++ PyTorch 1.7.1 (original [version](https://github.com/zju3dv/NIID-Net/tree/pytorch_0.3.1) using PyTorch 0.3.1)
++ torchvision 0.8.2
 + [Visdom](https://github.com/facebookresearch/visdom) 0.1.8.9 
-+ We provide a requirements.txt file for other dependencies.
++ We provide the ```requirements.txt``` file for other dependencies.
 
 Datasets
 -
@@ -86,7 +90,7 @@ Running
 Results
 - 
 #### Precomputed results
-- We provide visualized output on the SAW test set:
+- We provide visualized output on the SAW test set (note that SAW test data includes IIW test data and NYUv2 test data):
 [SAW_pred_imgs.zip](https://drive.google.com/file/d/18LI7CgTW0tVglF0u3Nirp1kZxca25iDJ/view?usp=sharing).
 And precision-recall measurements 
 ([precision-recall_curves.zip](https://drive.google.com/file/d/1WhxxN5sSVLLoet1ruk9VHzh_r-WhfRfs/view?usp=sharing))
@@ -148,4 +152,4 @@ Copyright
 
 Contact
 -
-Please open an issue or contact Jundan Luo (<jl3752@bath.ac.uk>) if you have any questions or any feedback.
+Please open an issue or contact Jundan Luo (<jundanluo22@gmail.com>) if you have any questions or any feedback.
