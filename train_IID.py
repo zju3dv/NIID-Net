@@ -276,7 +276,7 @@ if __name__ == '__main__':
         'batch_size_intrinsics': 16,  # batch_size for CGIntrinsics data during training
         'batch_size_iiw': 16,  # batch_size for IIW data during validation
         'num_workers_intrinsics': 2,  # num_workers for data_loader
-        'offline': False,  # set True if running online visdom
+        'offline': True,  # set True if running offline visdom
         'pretrained_file': './pretrained_model/final.pth.tar',
         # 'load_pretrained_NEM': True,
         # 'load_pretrained_IID_Net': True,

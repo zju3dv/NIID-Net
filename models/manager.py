@@ -32,7 +32,7 @@ import numpy as np
 
 from config import CriteriaTypes
 from models.niid_net import NIIDNet
-from loss import criteria_intrinsic
+from loss import criteria_normal, criteria_intrinsic
 
 
 class TrainState(object):
@@ -61,6 +61,7 @@ class NIIDNetManager(object):
         self.model = NIIDNet()
 
         # Criterion(metrics)
+        self.GM_criterion = criteria_normal.NormalCriterion()
         self.IID_criterion = criteria_intrinsic.CGIntrinsics_Criterion()
 
         # GPU
@@ -75,6 +76,8 @@ class NIIDNetManager(object):
             self.data_device = "cuda:%d" % self.gpu_devices[0]
             self.model = torch.nn.DataParallel(self.model.to(self.data_device),
                                                device_ids=self.gpu_devices, output_device=self.data_device)
+            self.GM_criterion = torch.nn.DataParallel(self.GM_criterion.to(self.data_device),
+                                                      device_ids=self.gpu_devices, output_device=self.data_device)
             self.IID_criterion = self.IID_criterion.to(self.data_device)
 
         # Load pre-trained model and set optimizer
