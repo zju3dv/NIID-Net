@@ -1,15 +1,20 @@
 # Codes are adapted from: https://github.com/zhengqili/CGIntrinsics
 
-import numpy as np
-from os import sys, path
+import os
+from os import path, makedirs
 
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+import numpy as np
+# import torch
+# import h5py
+
+# sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from scipy.ndimage.filters import maximum_filter
 from scipy.ndimage.measurements import label
 from skimage.transform import resize
 
 import test.saw_utils as saw_utils
+# from utils import image_util
 
 
 def eval_on_images(shading_image_arr, pixel_labels_dir, 
@@ -120,24 +125,27 @@ def get_precision_recall_list_new(predict_IID, pixel_labels_dir, thres_list, pho
 
         saw_img = saw_utils.load_img_arr(img_path)
         original_h, original_w = saw_img.shape[0], saw_img.shape[1]
-        saw_img = saw_utils.resize_img_arr(saw_img)
+        # saw_img = saw_utils.resize_img_arr(saw_img)
 
         pred_N_np, pred_R_np, pred_L_np, pred_S_np, rendered_img_np = predict_IID(saw_img)
+        pred_S_np = np.mean(pred_S_np, axis=2)
+        # pred_S_np = resize(pred_S_np, (original_h, original_w), order=1, preserve_range=True,
+        #                    mode='constant', anti_aliasing=False)
+        preds_np = (pred_N_np, pred_R_np, pred_L_np, pred_S_np, rendered_img_np)
+        preds_np = (resize(d, (original_h, original_w), order=1, preserve_range=True,
+                           mode='constant', anti_aliasing=True) for d in preds_np)
+        pred_N_np, pred_R_np, pred_L_np, pred_S_np, rendered_img_np = preds_np
         if idx % per_sample == 0:
             sample_arr.append({
                 'pred_N': pred_N_np,
                 'pred_R': pred_R_np,
                 'pred_L': pred_L_np,
-                'pred_S': pred_S_np,
+                'pred_S': pred_S_np[:, :, None],
                 'input_srgb': saw_img,
                 'rendered_img': rendered_img_np})
-        pred_S_np = np.mean(pred_S_np, axis=2)
-        pred_S_np = resize(pred_S_np, (original_h, original_w), order=1, preserve_range=True,
-                           mode='constant', anti_aliasing=False)
 
         # Save hdf5 file
-        # pred_R_np = resize(pred_R_np, (original_h, original_w), order=1, preserve_range=True)
-        # h5_dir = "checkpoints/test_saw/hdf5"
+        # h5_dir = "checkpoints/SAW_pred_h5/"
         # if not path.exists(h5_dir):
         #     makedirs(h5_dir)
         # hdf5_path = path.join(h5_dir, str(photo_id) + ".h5")
@@ -155,6 +163,28 @@ def get_precision_recall_list_new(predict_IID, pixel_labels_dir, thres_list, pho
         # pred_S = hdf5_file_read.get('/prediction/S')
         # pred_S = np.array(pred_S)
         # hdf5_file_read.close()
+
+        # Save visualized images
+        # _pred_s = np.expand_dims(pred_S_np, axis=2)
+        # _pred_s = np.concatenate([_pred_s, _pred_s, _pred_s], axis=2)
+        # _result = {
+        #     'pred_N': pred_N_np,
+        #     'pred_R': pred_R_np,
+        #     'pred_L': pred_L_np,
+        #     'pred_S': _pred_s,
+        #     'input_srgb': saw_img,
+        #     'rendered_img': rendered_img_np}
+        # _pred_imgs = {k: torch.from_numpy(np.transpose(_result[k], (2, 0, 1))).contiguous().float()
+        #              for k in _result.keys()}
+        # image_util.save_intrinsic_images('checkpoints/SAW_pred_imgs/', _pred_imgs, '%s' % (photo_id,), True)
+
+        # Save raw predictions
+        # raw_out_dir = os.path.join("checkpoints", "SAW_raw_pred")
+        # if not os.path.exists(raw_out_dir):
+        #     os.makedirs(raw_out_dir)
+        # np.save(os.path.join(raw_out_dir, f"{photo_id}-r.npy"), pred_R_np)
+        # np.save(os.path.join(raw_out_dir, f"{photo_id}-s.npy"), pred_S_np)
+        # np.save(os.path.join(raw_out_dir, f"{photo_id}-n.npy"), pred_N_np)
 
         # compute confusion matrix
         conf_mx_list = eval_on_images(shading_image_arr=pred_S_np,

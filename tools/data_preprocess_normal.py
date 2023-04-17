@@ -30,7 +30,7 @@ import argparse
 import multiprocessing
 
 
-import open3d as o3d  # importing open3d at the end may cause segmentation fault, don't know why
+import open3d as o3d  # import open3d(0.7.0) at the end causes segmentation fault, don't know why
 from matplotlib import pyplot as plt
 from skimage.transform import resize
 from PIL import Image

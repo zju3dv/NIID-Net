@@ -26,7 +26,7 @@ import shutil
 from itertools import chain
 
 import torch
-from torch.autograd import Variable
+# from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
 
@@ -68,13 +68,14 @@ class NIIDNetManager(object):
         if self.gpu_devices is None:
             if opt.isTrain:
                 raise Exception('Training code does not have CPU version.')
-            self.data_gpu = None
+            self.data_device = "cpu"
             print('\nCPU version')
         else:
             print('\nGPU_devices: %s' % self.gpu_devices)
-            self.data_gpu = self.gpu_devices[0]
-            self.model = torch.nn.DataParallel(self.model.cuda(self.data_gpu), device_ids=self.gpu_devices)
-            self.IID_criterion.cuda(self.data_gpu)
+            self.data_device = "cuda:%d" % self.gpu_devices[0]
+            self.model = torch.nn.DataParallel(self.model.to(self.data_device),
+                                               device_ids=self.gpu_devices, output_device=self.data_device)
+            self.IID_criterion = self.IID_criterion.to(self.data_device)
 
         # Load pre-trained model and set optimizer
         self.reset_train_mode(opt)
@@ -297,7 +298,7 @@ class NIIDNetManager(object):
         self.switch_to_train()
 
         # Input Data
-        input_srgb = Variable(inputs['input_srgb'].float().cuda(self.data_gpu), requires_grad=False)
+        input_srgb = inputs['input_srgb'].to(device=self.data_device, dtype=torch.float32).requires_grad_(False)
 
         # Forward
         optimizer = self.train_state.optimizer
@@ -327,9 +328,11 @@ class NIIDNetManager(object):
         if not CriteriaTypes.is_valid(criteria_label):
             raise Exception('The criteria label [%s] is not supported' % criteria_label)
         if CriteriaTypes.train_surface_normal(criteria_label):
-            pass
+            gt_normal = targets['normal'].to(device=self.data_device, dtype=torch.float32).requires_grad_(False)
+            valid_mask = targets['valid_normal'].to(device=self.data_device, dtype=torch.float32).requires_grad_(False)
+            loss = torch.mean(self.GM_criterion(N, gt_normal, valid_mask, input_srgb))
         else:
-            targets_var = {k: Variable(targets[k].float().cuda(self.data_gpu), requires_grad=False)
+            targets_var = {k: targets[k].to(device=self.data_device, dtype=torch.float32).requires_grad_(False)
                            for k in targets if torch.is_tensor(targets[k])}
             loss = self.IID_criterion(input_srgb, N, R, L, S, targets_var,
                                       not CriteriaTypes.warm_up_shading(criteria_label),
@@ -337,42 +340,39 @@ class NIIDNetManager(object):
                                       CriteriaTypes.train_shading(criteria_label))
         loss.backward()
         optimizer.step()
-        return loss.data[0]
+        return loss.item()
 
     def predict(self, inputs, normal=False, IID=False):
         # switch to eval mode
         self.switch_to_eval()
 
         # Input Data
-        input_srgb = inputs['input_srgb'].float()
-        if self.gpu_devices is not None:
-            input_srgb = input_srgb.cuda(self.data_gpu)
-        input_srgb = Variable(input_srgb, volatile=True)
+        input_srgb = inputs['input_srgb'].to(device=self.data_device, dtype=torch.float32)
 
         # Forward
-        N, R, L, S, rendered_img = self._forward(input_srgb,
-                                                 pred_normal=normal,
-                                                 pred_reflect=IID,
-                                                 pred_shading=IID)
-
-        if N is not None:
-            N = N / torch.norm(N, p=2, dim=1, keepdim=True).clamp(min=1e-6)
-            N = N.data
-        if R is not None:
-            R = R.data
-        if L is not None:
-            L = L.data
-        if S is not None:
-            S = (S.repeat(1, 3, 1, 1)).data
-        if rendered_img is not None:
-            rendered_img = rendered_img.data
+        with torch.no_grad():
+            N, R, L, S, rendered_img = self._forward(input_srgb,
+                                                     pred_normal=normal,
+                                                     pred_reflect=IID,
+                                                     pred_shading=IID)
+            if N is not None:
+                N = N / torch.linalg.norm(N, ord=2, dim=1, keepdim=True).clamp(min=1e-6)
+                N = N.detach()
+            if R is not None:
+                R = R.detach()
+            if L is not None:
+                L = L.detach()
+            if S is not None:
+                S = (S.repeat(1, 3, 1, 1)).detach()
+            if rendered_img is not None:
+                rendered_img = rendered_img.detach()
 
         return N, R, L, S, rendered_img
 
     def predict_IID_np_for_saw_eval(self, saw_img):
         # Input Data
         saw_img = np.transpose(saw_img, (2, 0, 1))
-        input_ = torch.from_numpy(saw_img).unsqueeze(0).contiguous().float()
+        input_ = torch.from_numpy(saw_img).unsqueeze(0).contiguous().to(torch.float32)
 
         p_N, p_R, p_L, p_S, rendered_img = self.predict({'input_srgb': input_}, IID=True)
 
@@ -388,9 +388,9 @@ class NIIDNetManager(object):
         scheduler = self.train_state.scheduler
         sd_type = self.train_state.sd_type
         if sd_type == 'plateau':
-            scheduler.step(metrics=eval, epoch=None)
+            scheduler.step(metrics=eval)
         else:
-            scheduler.step(epoch=None)
+            scheduler.step()
 
 
 def create_model(opt):

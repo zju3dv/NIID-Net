@@ -121,21 +121,21 @@ def decompose_images(data_dir, output_dir, save_individually, **kwargs):
         input_img = o_img
 
         # Predict
-        input_img = TF.to_tensor(input_img).unsqueeze(0)
+        input_img = TF.to_tensor(input_img).to(torch.float32).unsqueeze(0)
         pred_N, pred_R, pred_L, pred_S, rendered_img = model.predict({'input_srgb': input_img}, normal=True, IID=True)
 
         # Save results
         idx = 0
         pred_imgs = {
-            'pred_N': pred_N[idx].cpu(),
-            'pred_R': pred_R[idx].cpu(),
-            'pred_L': pred_L[idx].cpu(),
-            'pred_S': pred_S[idx].cpu(),
-            'rendered_img': rendered_img[idx].cpu(),
-            'input_srgb': input_img[idx],
+            'pred_N': pred_N[idx],
+            'pred_R': pred_R[idx],
+            'pred_L': pred_L[idx],
+            'pred_S': pred_S[idx],
+            'rendered_img': rendered_img[idx],
+            'input_srgb': input_img[idx].to(pred_N.device),
         }
         f = '%s_decomposed' % (file_name[:file_name.rfind('.')])
-        image_util.save_intrinsic_images(output_dir, pred_imgs, label=f, individual=save_individually)
+        image_util.save_intrinsic_images(output_dir, pred_imgs, label=f, separate=save_individually)
         torch.save(pred_imgs, os.path.join(output_dir, f+'.pth.tar'))
         print('Decompose %s successfully!' % file_name)
 

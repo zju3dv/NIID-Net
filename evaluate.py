@@ -22,6 +22,7 @@
 # ////////////////////////////////////////////////////////////////////////////
 
 import os
+import time
 
 import torch
 import numpy as np
@@ -85,6 +86,7 @@ def validate_iiw(model, opt, use_test_split,
         for i, data_iiw in enumerate(dataset_iiw_test):
             inputs = {'input_srgb': data_iiw['img_1']}
             targets = data_iiw['target_1']
+            img_name = targets["img_name"]
 
             pred_N, pred_R, pred_L, pred_S, rendered_img = model.predict(inputs, normal=True, IID=True)
             total_whdr, total_whdr_eq, total_whdr_ineq, count = \
@@ -99,19 +101,33 @@ def validate_iiw(model, opt, use_test_split,
 
             cnt += 1
             if visualize_dir is not None:
+                # save 32-bit raw outputs
+                raw_out_dir = os.path.join(visualize_dir, "raw")
+                if not os.path.exists(raw_out_dir):
+                    os.makedirs(raw_out_dir)
+                for b in range(pred_R.size(0)):
+                    img_id = img_name[b]
+                    r = pred_R[b].cpu().to(torch.float32).numpy()
+                    r = np.transpose(r, (1, 2, 0))
+                    s = pred_S[b].cpu().to(torch.float32).numpy()
+                    s = np.transpose(s, (1, 2, 0))
+                    np.save(os.path.join(raw_out_dir, f"{img_id}-r"), r)
+                    np.save(os.path.join(raw_out_dir, f"{img_id}-s"), s)
+
                 if cnt % num_batch == 0:
                     idx = 0
                     pred_imgs = {
-                        'pred_N': pred_N[idx].cpu(),
-                        'pred_R': pred_R[idx].cpu(),
-                        'pred_L': pred_L[idx].cpu(),
-                        'pred_S': pred_S[idx].cpu(),
-                        'rendered_img': rendered_img[idx].cpu(),
-                        'input_srgb': inputs['input_srgb'][idx].cpu(),
+                        'pred_N': pred_N[idx],
+                        'pred_R': pred_R[idx],
+                        'pred_L': pred_L[idx],
+                        'pred_S': pred_S[idx],
+                        'rendered_img': rendered_img[idx],
+                        'input_srgb': inputs['input_srgb'][idx].to(pred_N.device),
                     }
                     # pred_imgs = {k: eval_results[k][idx].cpu()
                     #              for k in eval_results.keys() if torch.is_tensor(eval_results[k])}
-                    image_util.save_intrinsic_images(visualize_dir, pred_imgs, label='%s_%s-%s-%s' % (label, j, i, idx))
+                    image_util.save_intrinsic_images(visualize_dir, pred_imgs, label='%s_%s-%s-%s-%s' %
+                                                                                     (label, j, i, idx, img_name[idx]))
 
     return total_loss/(total_count), total_loss_eq/total_count, total_loss_ineq/total_count
 
@@ -200,7 +216,7 @@ def validate_saw(model, full_root, use_test_split, mode,
     # Save visualized results of samples and PR_array
     if visualize_dir is not None:
         for idx, result in enumerate(sample_arr):
-            pred_imgs = {k: torch.from_numpy(np.transpose(result[k], (2, 0, 1))).contiguous().float()
+            pred_imgs = {k: torch.from_numpy(np.transpose(result[k], (2, 0, 1))).contiguous().to(torch.float32)
                          for k in result.keys()}
             # pred_imgs = {
             #     'pred_N': torch.from_numpy(np.transpose(result['pred_N'], (2, 0, 1))).contiguous().float(),
@@ -254,14 +270,82 @@ def test_SAW(mode=1, **kwargs):
     print("Test SAW mode %d: AP %f" % (mode, AP))
 
 
+def check_model_size(**kwargs):
+    """
+    Compute number of trainable parameters and MACs.
+    """
+
+    # parse parameters
+    from config import TrainIIDOptions
+    opt = TrainIIDOptions()
+    opt.parse(kwargs)
+    # set all modules as trainable
+    opt.isTrain = True
+    opt.optim_NEM = True
+    opt.optim_IID = 'full'  # optimize the IID-Net
+
+    # torch setting
+    pytorch_settings.set_(with_random=False, determine=True)
+
+    # Model Manager
+    model = create_model(opt)
+    model.switch_to_train()
+
+    # compute model size and MACs
+    class ModelWrapper(torch.nn.Module):
+        def __init__(self, model, pred_normal, pred_reflect, pred_shading):
+            super(ModelWrapper, self).__init__()
+            self.model = model
+            self.pred_normal = pred_normal
+            self.pred_reflect = pred_reflect
+            self.pred_shading = pred_shading
+
+        def forward(self, input):
+            self.model(input, self.pred_normal, self.pred_reflect, self.pred_shading)
+    import ptflops
+    #  if only computes the reflectance branch flop, please also comment the NEM_refine_model in the niid_net code
+    pred_normal, pred_reflect, pred_shading = True, True, True
+    model_w = ModelWrapper(model.model, pred_normal, pred_reflect, pred_shading)  # set the forwarding pass
+    # from models import iid_net
+    # model_w = iid_net.IIDNet(3, (0, 0, 0), 3, 3, ngf=32)
+    img_size = 448
+    macs, params = ptflops.get_model_complexity_info(
+        model_w,
+        (3, img_size, img_size),
+        as_strings=True, print_per_layer_stat=False, verbose=True
+    )
+    print(f"for training: NEM {opt.optim_NEM}, IID {opt.optim_IID}")
+    print(f"For forwarding: normal {pred_normal}, reflect {pred_reflect}, shading {pred_shading}")
+    print(f'    => FLOPs: {macs:<8}, params: {params:<8}')
+
+    # inference time
+    model.switch_to_eval()
+    model_w = ModelWrapper(model.model, pred_normal, pred_reflect, pred_shading)  # set the forwarding pass
+    input_data = torch.randn(1, 3, img_size, img_size)
+    interval = 50
+    print(f"Inference: normal {pred_normal}, reflect {pred_reflect}, shading {pred_shading}")
+    end = time.time()
+    for i in range(1000):
+        with torch.no_grad():
+            model_w(input_data)
+        if (i + 1) % interval == 0:
+            print(f"     data {input_data.shape} per batch: "
+                  f"{(time.time()-end)/interval}")
+            end = time.time()
+
+
 if __name__ == '__main__':
     params = {
         'pretrained_file': './pretrained_model/final.pth.tar',
         'offline': True,
         'batch_size_iiw': 8,
         'num_workers_intrinsics': 1,
+        'batch_size_normal': 8,
+        'num_workers_normal': 1,
         'gpu_devices': [0,],
     }
 
-    test_IIW(**params)
+    # test_IIW(**params)
     test_SAW(mode=1, **params)
+    # test_NYUv2_normal(**params)
+    # check_model_size()

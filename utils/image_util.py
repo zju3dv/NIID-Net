@@ -56,7 +56,7 @@ def rgb_to_chromaticity(rgb):
 
 def save_srgb_image(image, path, filename):
     # Transform to PILImage
-    image_np = np.transpose(image.cpu().float().numpy(), (1, 2, 0)) * 255.0
+    image_np = np.transpose(image.to(torch.float32).cpu().numpy(), (1, 2, 0)) * 255.0
     image_np = image_np.astype(np.uint8)
     image_pil = Image.fromarray(image_np, mode='RGB')
     # Save Image
@@ -70,14 +70,16 @@ def adjust_image_for_display(image, rescale=True, trans2srgb=False, mask=None):
 
     vis = image.clone()
     if rescale:
-        if mask is None:
-            s = np.percentile(vis.numpy(), 99.9)
-        else:
-            s = np.percentile(vis[mask > 0.5].numpy(), 99.9)
+        s = np.percentile(vis.cpu(), 99.9)
+        # if mask is None:
+        #     s = np.percentile(vis.numpy(), 99.9)
+        # else:
+        #     s = np.percentile(vis[mask > 0.5].numpy(), 99.9)
         if s > MAX_SRGB:
             vis = vis / s * MAX_SRGB
 
-    vis[vis < 0] = 0
+    vis = torch.clamp(vis, min=0)
+    # vis[vis < 0] = 0
     if trans2srgb:
         vis[vis > MAX_SRGB] = MAX_SRGB
         vis = rgb_to_srgb(vis)
@@ -86,13 +88,13 @@ def adjust_image_for_display(image, rescale=True, trans2srgb=False, mask=None):
     return vis
 
 
-def save_intrinsic_images(path, pred_images, label=None, individual=False):
+def save_intrinsic_images(path, pred_images, label=None, separate=False):
     """ Visualize and save intrinsic images
 
     :param path: output directory
     :param images: images to be visualized
     :param label: prefix for output files
-    :param individual: save visualized images individually or not
+    :param separate: save visualized images separately or not
     """
     # Visualization for intrinsic images
     ## surface normal
@@ -126,7 +128,7 @@ def save_intrinsic_images(path, pred_images, label=None, individual=False):
     vis_srgb = pred_images['input_srgb']
 
     # Save intrinsic images
-    if individual:
+    if separate:
         save_srgb_image(vis_N, path, label+'_N.png')
         save_srgb_image(vis_R, path, label+'_R.png')
         save_srgb_image(vis_L_length, path, label+'_L_length.png')
@@ -155,10 +157,9 @@ def save_normal_images(path, filename, input_srgb, normal_gt, normal_pred, norma
     normal_gt = np.transpose(normal_gt.cpu().numpy(), (1, 2, 0))
 
     # Normal prediction
-    normal_pred = normal_pred / (torch.norm(normal_pred, p=2, dim=0, keepdim=True) + 1e-6)
-    normal_pred = normal_pred.cpu()
+    normal_pred = normal_pred / torch.linalg.norm(normal_pred, ord=2, dim=0, keepdim=True).clamp(min=1e-6)
     normal_pred = 255 * (-normal_pred+1) / 2.0
-    normal_pred = np.transpose(normal_pred.numpy(), (1, 2, 0))
+    normal_pred = np.transpose(normal_pred.cpu().numpy(), (1, 2, 0))
 
     # Merge
     img_merge = np.hstack([srgb, normal_gt, normal_pred])

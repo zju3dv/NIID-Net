@@ -54,7 +54,7 @@ class _UpProjection(nn.Module):
     def forward(self, x, size=None, scale_factor=2):
         if size is None:
             size = [x.size(2)*scale_factor, x.size(3)*scale_factor]
-        x = F.upsample(x, size=size, mode='bilinear')
+        x = F.interpolate(x, size=size, mode='bilinear', align_corners=True)
         x_conv1 = self.relu(self.bn1(self.conv1(x)))
         bran1 = self.bn1_2(self.conv1_2(x_conv1))
         bran2 = self.bn2(self.conv2(x))

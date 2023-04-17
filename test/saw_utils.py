@@ -167,8 +167,8 @@ def grouped_confusion_matrix(y_true, y_pred, y_pred_max):
 def gen_pr_thres_list(thres_count):
     """ Generate a list of thresholds between 0 and 1, generating more around 0
     and 1 than in the middle. """
-    zero_to_one = np.linspace(1.001, 1.5, num=thres_count/2)
-    one_to_five = np.linspace(1.501, 64.0, num=thres_count/2)
+    zero_to_one = np.linspace(1.001, 1.5, num=thres_count//2)
+    one_to_five = np.linspace(1.501, 64.0, num=thres_count//2)
 
     thres_list = sorted(list(zero_to_one) + list(one_to_five))
     thres_list = np.log(thres_list)

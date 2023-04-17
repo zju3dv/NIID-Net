@@ -25,7 +25,7 @@
 import torch
 import torch.nn as nn
 import torch.sparse
-from torch.autograd import Variable
+# from torch.autograd import Variable
 import numpy as np
 import torch.nn.functional as F
 
@@ -76,8 +76,8 @@ class LaplaceFilter_5D(nn.Module):
             [0, 0, 1, 0, 0],
         ])
         edge_k = edge
-        edge_k = torch.from_numpy(edge_k).float().view(1, 1, 5, 5)
-        self.edge_conv.weight = nn.Parameter(edge_k)
+        edge_k = torch.from_numpy(edge_k).to(torch.float32).view(1, 1, 5, 5)
+        self.edge_conv.weight = nn.Parameter(edge_k, requires_grad=False)
 
         if True:
             self.mask_conv = nn.Conv2d(1, 1, kernel_size=5, stride=1, padding=2, bias=False)
@@ -88,8 +88,8 @@ class LaplaceFilter_5D(nn.Module):
                 [0, 0.077, 0.077, 0.077, 0],
                 [0, 0, 0.077, 0, 0]
             ])
-            mask_k = torch.from_numpy(mask_k).float().view(1, 1, 5, 5)
-            self.mask_conv.weight = nn.Parameter(mask_k)
+            mask_k = torch.from_numpy(mask_k).to(torch.float32).view(1, 1, 5, 5)
+            self.mask_conv.weight = nn.Parameter(mask_k, requires_grad=False)
 
         for param in self.parameters():
             param.requires_grad = False
@@ -218,8 +218,8 @@ class ReflectConsistentLoss(nn.Module):
         return loss
 
     def forward(self, pred_R, gt_R, target_rgb, mask):
-        device_id = pred_R.get_device()
-        total_loss = Variable(torch.zeros(1).type(torch.FloatTensor)).cuda(device_id)
+        device = pred_R.device
+        total_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
 
         x_spaces = np.linspace(0, gt_R.size(2), self.split_x+1, endpoint=True, dtype=np.int)
         y_spaces = np.linspace(0, gt_R.size(3), self.split_y+1, endpoint=True, dtype=np.int)
@@ -240,8 +240,8 @@ class LightingSmoothLoss(nn.Module):
         self.thrld_smooth_N = 0.05
 
     def forward(self, pred_L, N, mask, mode):
-        L_length = torch.norm(pred_L, p=2, dim=1, keepdim=True)
-        N = N / (torch.norm(N, p=2, dim=1, keepdim=True) + 1e-6)
+        L_length = torch.linalg.norm(pred_L, ord=2, dim=1, keepdim=True)
+        N = N / torch.linalg.norm(N, ord=2, dim=1, keepdim=True).clamp(min=1e-6)
 
         # smooth light direction loss
         cos_h = self.cos(pred_L[:, :, :-1, :], pred_L[:, :, 1:, :])
@@ -253,7 +253,7 @@ class LightingSmoothLoss(nn.Module):
             mask_1ch = torch.ones_like(L_length)
         else:
             Lap_N, _ = self.laplace_filter_5D(N)
-            mask_smooth_N = (torch.abs(Lap_N).mean(dim=1, keepdim=True) < self.thrld_smooth_N).float()
+            mask_smooth_N = (torch.abs(Lap_N).mean(dim=1, keepdim=True) < self.thrld_smooth_N).to(torch.float32)
             mask_1ch = mask.min(dim=1, keepdim=True)[0] * mask_smooth_N
 
         step = 1
@@ -295,8 +295,8 @@ class CGIntrinsics_Criterion(nn.Module):
 
     def forward(self, input_images, N, R, L, S, targets, smooth_L_with_N, compute_loss_R, compute_loss_S):
         # GPU
-        device_id = N.get_device()
-        total_loss = Variable(torch.zeros(1).type(torch.FloatTensor)).cuda(device_id)
+        device = N.device
+        total_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
 
 
         #### GroundTruth ####
@@ -312,12 +312,12 @@ class CGIntrinsics_Criterion(nn.Module):
 
         # Same size
         size = [N.size(2), N.size(3)]
-        gt_R = F.upsample(gt_R, size, mode='bilinear')
-        gt_S = F.upsample(gt_S, size, mode='bilinear')
+        gt_R = F.upsample(gt_R, size, mode='bilinear', align_corners=True)
+        gt_S = F.upsample(gt_S, size, mode='bilinear', align_corners=True)
         gt_S_intensity = torch.mean(gt_S, dim=1, keepdim=True)  # shading intensity
-        rgb_img = F.upsample(rgb_img, size, mode='bilinear')
-        mask = F.upsample(mask, size, mode='bilinear')
-        mask = (mask >= 0.999).float()
+        rgb_img = F.upsample(rgb_img, size, mode='bilinear', align_corners=True)
+        mask = F.upsample(mask, size, mode='bilinear', align_corners=True)
+        mask = (mask >= 0.999).to(torch.float32)
 
         #### Loss function ####
 

@@ -571,6 +571,7 @@ class IIW_ImageFolder(data.Dataset):
         srgb_img, random_filp, oringinal_shape = self.iiw_loader(self.img_list[self.current_o_idx][index].split('/'))
 
         targets_1['path'] = "/" + img_path.split('/')[-1] 
+        targets_1['img_name'] = self.img_list[self.current_o_idx][index].split('/')[-1][:-7]
         targets_1["judgements_path"] = judgement_path
         targets_1["random_filp"] = random_filp > 0.5
         targets_1["oringinal_shape"] = oringinal_shape

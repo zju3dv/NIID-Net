@@ -66,12 +66,12 @@ class NIIDNet(nn.Module):
             h, w = 240, 320 #384, 512
         else:
             h, w = 320, 320 #384, 384
-        scaled_input_srgb = F.upsample(input_img, size=[h, w], mode='bilinear')
+        scaled_input_srgb = F.upsample(input_img, size=[h, w], mode='bilinear', align_corners=True)
         return scaled_input_srgb
 
     def render(self, N, L, R=None):
         # shading intensity
-        N = N / torch.norm(N, p=2, dim=1, keepdim=True).clamp(min=1e-6)
+        N = N / torch.linalg.norm(N, ord=2, dim=1, keepdim=True).clamp(min=1e-6)
         shading_intensity = F.relu(torch.sum(N * L, dim=1, keepdim=True))
 
         # render
@@ -95,7 +95,7 @@ class NIIDNet(nn.Module):
             (xb1, xb2, xb3, xb4), NEM_coarse_decoder = self.NEM_coarse_model(normalized_scaled_input)
             out_N = self.NEM_refine_model(NEM_coarse_decoder, xb1, xb2, xb3, xb4)
             out_N = out_N * 2.0 - 1.0  # range: [-1, 1]
-            out_N = F.upsample(out_N, size=[o_h, o_w], mode='bilinear')
+            out_N = F.upsample(out_N, size=[o_h, o_w], mode='bilinear', align_corners=True)
 
         out_R = out_L = out_S = rendered_img = None
         if pred_reflect or pred_shading:
@@ -103,9 +103,9 @@ class NIIDNet(nn.Module):
                                           pred_reflect, pred_shading)
             if pred_reflect:
                 out_R = torch.exp(out_R)
-                out_R = F.upsample(out_R, size=[o_h, o_w], mode='bilinear')
+                out_R = F.upsample(out_R, size=[o_h, o_w], mode='bilinear', align_corners=True)
             if pred_shading:
-                out_L = F.upsample(out_L, size=[o_h, o_w], mode='bilinear')
+                out_L = F.upsample(out_L, size=[o_h, o_w], mode='bilinear', align_corners=True)
                 out_S, rendered_img = self.render(out_N, out_L, out_R)
 
         return out_N, out_R, out_L, out_S, rendered_img

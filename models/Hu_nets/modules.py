@@ -26,7 +26,7 @@ class _UpProjection(nn.Sequential):
         self.bn2 = nn.BatchNorm2d(num_output_features)
 
     def forward(self, x, size):
-        x = F.upsample(x, size=size, mode='bilinear')
+        x = F.upsample(x, size=size, mode='bilinear', align_corners=True)
         x_conv1 = self.relu(self.bn1(self.conv1(x)))
         bran1 = self.bn1_2(self.conv1_2(x_conv1))
         bran2 = self.bn2(self.conv2(x))

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
+# from torch.autograd import Variable
 
 
 from models.Hu_nets import resnet, densenet, senet, modules
