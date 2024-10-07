@@ -14,7 +14,7 @@ from scipy.ndimage.measurements import label
 from skimage.transform import resize
 
 import test.saw_utils as saw_utils
-# from utils import image_util
+from utils import image_util
 
 
 def eval_on_images(shading_image_arr, pixel_labels_dir, 
@@ -136,13 +136,14 @@ def get_precision_recall_list_new(predict_IID, pixel_labels_dir, thres_list, pho
                            mode='constant', anti_aliasing=True) for d in preds_np)
         pred_N_np, pred_R_np, pred_L_np, pred_S_np, rendered_img_np = preds_np
         if idx % per_sample == 0:
-            sample_arr.append({
+            p_imgs = {
                 'pred_N': pred_N_np,
                 'pred_R': pred_R_np,
                 'pred_L': pred_L_np,
                 'pred_S': pred_S_np[:, :, None],
                 'input_srgb': saw_img,
-                'rendered_img': rendered_img_np})
+                'rendered_img': rendered_img_np}
+            sample_arr.append(p_imgs)
 
         # Save hdf5 file
         # h5_dir = "checkpoints/SAW_pred_h5/"
@@ -165,8 +166,8 @@ def get_precision_recall_list_new(predict_IID, pixel_labels_dir, thres_list, pho
         # hdf5_file_read.close()
 
         # Save visualized images
-        # _pred_s = np.expand_dims(pred_S_np, axis=2)
-        # _pred_s = np.concatenate([_pred_s, _pred_s, _pred_s], axis=2)
+        # _pred_s = np.expand_dims(pred_S_np, axis=2)  # (H, W, 1)
+        # _pred_s = np.concatenate([_pred_s, _pred_s, _pred_s], axis=2)  # (H, W, 3)
         # _result = {
         #     'pred_N': pred_N_np,
         #     'pred_R': pred_R_np,
@@ -176,6 +177,8 @@ def get_precision_recall_list_new(predict_IID, pixel_labels_dir, thres_list, pho
         #     'rendered_img': rendered_img_np}
         # _pred_imgs = {k: torch.from_numpy(np.transpose(_result[k], (2, 0, 1))).contiguous().float()
         #              for k in _result.keys()}
+        # for k in ["pred_N", "pred_L"]:
+        #     _pred_imgs[k] = image_util.convert_to_common_coordinate_system(_pred_imgs[k])
         # image_util.save_intrinsic_images('checkpoints/SAW_pred_imgs/', _pred_imgs, '%s' % (photo_id,), True)
 
         # Save raw predictions
@@ -184,7 +187,9 @@ def get_precision_recall_list_new(predict_IID, pixel_labels_dir, thres_list, pho
         #     os.makedirs(raw_out_dir)
         # np.save(os.path.join(raw_out_dir, f"{photo_id}-r.npy"), pred_R_np)
         # np.save(os.path.join(raw_out_dir, f"{photo_id}-s.npy"), pred_S_np)
-        # np.save(os.path.join(raw_out_dir, f"{photo_id}-n.npy"), pred_N_np)
+        # _pred_N_np = _pred_imgs["pred_N"].cpu().numpy()  # (3, H, W). Use the normals transformed to the common coordinate system
+        # _pred_N_np = np.transpose(_pred_N_np, (1, 2, 0))  # (H, W, 3)
+        # np.save(os.path.join(raw_out_dir, f"{photo_id}-n.npy"), _pred_N_np)
 
         # compute confusion matrix
         conf_mx_list = eval_on_images(shading_image_arr=pred_S_np,

@@ -75,8 +75,8 @@ class NormalCriterion(nn.Module):
         if self.cnt.num % 50 == 0:
             vis_N = pred_N / torch.linalg.norm(pred_N, ord=2, dim=1, keepdim=True).clamp(min=1e-6)
             V.vis.img_many({
-                'pred_normal': (-vis_N.data.cpu()[0]+1.0)/2.0,
-                'gt_normal': (-gt_N.data.cpu()[0]+1.0)/2.0,
+                'pred_normal': (vis_N.data.cpu()[0]+1.0)/2.0,
+                'gt_normal': (gt_N.data.cpu()[0]+1.0)/2.0,
                 'valid_normal': mask.data.cpu()[0],
                 'input_srgb': input_srgb.data.cpu()[0],
             })

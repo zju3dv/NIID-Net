@@ -23,6 +23,7 @@
 
 import os
 import time
+import argparse
 
 import torch
 import numpy as np
@@ -31,10 +32,82 @@ from math import ceil
 
 from config import TestOptions
 from models.manager import create_model
-from test import metrics_iiw, metrics_saw
+from test import metrics_iiw, metrics_saw, metrics_normal
 from utils import image_util
 from utils import pytorch_settings
 import utils.visualize as V
+from data.depth import nyu_large_loader
+
+
+def validate_normal(model, opt,
+                    label, visualize_dir=None, visualize_interval=1):
+    """Evaluate surface normal estimation of the model
+    """
+
+    # loader = diode_dataset_loader.get_loader(
+    #     opt.diode_meta_fname, opt.DIODE_root, False, True, opt.normal_input_size, batch_size=opt.batch_size_normal, num_workers=opt.num_workers_normal
+    # )
+    loader = nyu_large_loader.get_loader(
+        opt.NYUv2_root, False, opt.normal_input_size, opt.batch_size_normal, opt.num_workers_normal
+    )
+
+    meter = metrics_normal.SurfaceNormalMeter()
+    num_batch = ceil(visualize_interval / opt.batch_size_normal)
+    for cnt, data in enumerate(loader):
+        inputs = data['inputs']
+        targets = data['targets']
+        pred_normal, _, _, _, _ = model.predict(inputs, normal=True)
+
+        label_normal = targets['normal'].to(pred_normal.device)
+        valid_normal = targets['valid_normal'].to(pred_normal.device)
+        # if pred_normal.is_cuda:
+        #     label_normal = label_normal.cuda(pred_normal.get_device())
+        #     valid_normal = valid_normal.cuda(pred_normal.get_device())
+        meter.add_evaluation(pred_normal, label_normal, valid_normal)
+
+        # Visualize
+        if visualize_dir is not None:
+            if cnt % num_batch == 0:
+                idx = 0
+                image_util.save_normal_images(
+                    visualize_dir,
+                    "val_%s_img_%04d.png" % (label, targets['index'][idx]),
+                    data['inputs']['raw_srgb'][idx],
+                    label_normal[idx],
+                    pred_normal[idx],
+                    valid_normal[idx],
+                )
+
+    return meter.get_results()
+
+
+def test_NYUv2_normal(**kwargs):
+    # parse parameters
+    opt = TestOptions()
+    # print(kwargs)
+    opt.parse(kwargs)
+    output_dir = os.path.join(opt.checkpoints_dir, 'test_normal')
+    visualize_interval = 40
+
+    # torch setting
+    pytorch_settings.set_(with_random=False, determine=True)
+
+    # visualize
+    V.create_a_visualizer(opt)
+
+    # Model Manager
+    model = create_model(opt)
+    model.switch_to_eval()
+
+    # Evaluation
+    test_measure = validate_normal(
+        model, opt, label='test', visualize_dir=output_dir, visualize_interval=visualize_interval
+    )
+
+    # Results
+    print('\nEvaluation: ')
+    print('    mean:%.3f, median:%.3f, rmse:%.3f' % (test_measure['mean'], test_measure['median'], test_measure['rmse']))
+    print('    p1125:%.3f, p2250:%.3f, p3000:%.3f' % (test_measure['p1125'], test_measure['p2250'], test_measure['p3000']))
 
 
 def validate_iiw(model, opt, use_test_split,
@@ -124,6 +197,8 @@ def validate_iiw(model, opt, use_test_split,
                         'rendered_img': rendered_img[idx],
                         'input_srgb': inputs['input_srgb'][idx].to(pred_N.device),
                     }
+                    for k in ["pred_N", "pred_L"]:
+                        pred_imgs[k] = image_util.convert_to_common_coordinate_system(pred_imgs[k])
                     # pred_imgs = {k: eval_results[k][idx].cpu()
                     #              for k in eval_results.keys() if torch.is_tensor(eval_results[k])}
                     image_util.save_intrinsic_images(visualize_dir, pred_imgs, label='%s_%s-%s-%s-%s' %
@@ -226,6 +301,8 @@ def validate_saw(model, full_root, use_test_split, mode,
             #     'input_srgb': torch.from_numpy(np.transpose(result['input_srgb'], (2, 0, 1))).contiguous().float(),
             #     'rendered_img': torch.from_numpy(np.transpose(result['rendered_img'], (2, 0, 1))).contiguous().float(),
             # }
+            for k in ["pred_N", "pred_L"]:
+                pred_imgs[k] = image_util.convert_to_common_coordinate_system(pred_imgs[k])
             image_util.save_intrinsic_images(visualize_dir, pred_imgs, '%s_%d-%d' % (label, idx, samples), False)
         # save PR_array
         if mode == 0:
@@ -334,7 +411,21 @@ def check_model_size(**kwargs):
             end = time.time()
 
 
+def parse_arguments():
+    """
+    Parse command-line arguments.
+    """
+    parser = argparse.ArgumentParser(description='Evaluation of the model')
+    parser.add_argument('--func', type=str,
+                        default="test_iiw",
+                        help='function to be executed')
+    args = parser.parse_args()
+    args.func = args.func.lower()
+    return args
+
+
 if __name__ == '__main__':
+    args = parse_arguments()
     params = {
         'pretrained_file': './pretrained_model/final.pth.tar',
         'offline': True,
@@ -345,7 +436,18 @@ if __name__ == '__main__':
         'gpu_devices': [0,],
     }
 
+    if args.func == 'test_iiw':
+        test_IIW(**params)
+    elif args.func == 'test_saw':
+        test_SAW(mode=1, **params)
+    elif args.func == 'test_normal':
+        test_NYUv2_normal(**params)
+    elif args.func == 'model_size':
+        check_model_size()
+    else:
+        print(f"Function {args.func} not found.")
+
     # test_IIW(**params)
-    test_SAW(mode=1, **params)
+    # test_SAW(mode=1, **params)
     # test_NYUv2_normal(**params)
     # check_model_size()

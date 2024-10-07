@@ -292,8 +292,9 @@ class NIIDNetManager(object):
         self.train_state.scheduler = scheduler
         self.train_state.sd_type = sd_type
 
-    def _forward(self, input_srgb, pred_normal, pred_reflect, pred_shading):
-        out_N, out_R, out_L, out_S, rendered_img = self.model(input_srgb, pred_normal, pred_reflect, pred_shading)
+    def _forward(self, input_srgb, pred_normal, pred_reflect, pred_shading, resize_input=True):
+        out_N, out_R, out_L, out_S, rendered_img = self.model(input_srgb, pred_normal, pred_reflect, pred_shading,
+                                                              resize_input)
         return out_N, out_R, out_L, out_S, rendered_img
 
     def optimize(self, inputs, targets, criteria_label, data_set_name):
@@ -345,7 +346,7 @@ class NIIDNetManager(object):
         optimizer.step()
         return loss.item()
 
-    def predict(self, inputs, normal=False, IID=False):
+    def predict(self, inputs, normal=False, IID=False, resize_input=True):
         # switch to eval mode
         self.switch_to_eval()
 
@@ -357,7 +358,8 @@ class NIIDNetManager(object):
             N, R, L, S, rendered_img = self._forward(input_srgb,
                                                      pred_normal=normal,
                                                      pred_reflect=IID,
-                                                     pred_shading=IID)
+                                                     pred_shading=IID,
+                                                     resize_input=resize_input)
             if N is not None:
                 N = N / torch.linalg.norm(N, ord=2, dim=1, keepdim=True).clamp(min=1e-6)
                 N = N.detach()

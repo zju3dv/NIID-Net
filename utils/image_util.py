@@ -88,21 +88,22 @@ def adjust_image_for_display(image, rescale=True, trans2srgb=False, mask=None):
     return vis
 
 
-def save_intrinsic_images(path, pred_images, label=None, separate=False):
+def save_intrinsic_images(path, pred_images, label=None, separate=False, save_srgb=False):
     """ Visualize and save intrinsic images
 
     :param path: output directory
     :param images: images to be visualized
     :param label: prefix for output files
     :param separate: save visualized images separately or not
+    :param save_srgb: save intrinsic images in sRGB space or not
     """
     # Visualization for intrinsic images
     ## surface normal
-    vis_N = (-pred_images['pred_N']+1) / 2.0
+    vis_N = (pred_images['pred_N']+1) / 2.0
 
     ## reflectance
     pred_R = pred_images['pred_R']
-    vis_R = adjust_image_for_display(pred_R, rescale=False, trans2srgb=True)
+    vis_R = adjust_image_for_display(pred_R, rescale=True, trans2srgb=save_srgb).clamp(min=0, max=1)
     # if pred_R.size(0) == 1:
     #     input_srgb = pred_images['input_srgb']
     #     rgb = srgb_to_rgb(input_srgb)
@@ -114,12 +115,12 @@ def save_intrinsic_images(path, pred_images, label=None, separate=False):
     L_length = torch.sum(pred_L**2, dim=0, keepdim=True) ** 0.5
     L_direct = pred_L / (L_length + 1e-6)
     vis_L_length = adjust_image_for_display(L_length, rescale=True, trans2srgb=True)
-    vis_L_direct = (-L_direct+1)/2.0
+    vis_L_direct = (L_direct+1)/2.0
     vis_dot_NL = F.cosine_similarity(pred_images['pred_N'], pred_images['pred_L'], dim=0).unsqueeze(0)
     vis_dot_NL = adjust_image_for_display(vis_dot_NL, rescale=False, trans2srgb=True)
 
     ## shading
-    vis_S = adjust_image_for_display(pred_images['pred_S'], rescale=True, trans2srgb=True)
+    vis_S = adjust_image_for_display(pred_images['pred_S'], rescale=True, trans2srgb=save_srgb).clamp(min=0, max=1)
 
     ## reconstructed image
     vis_rendered_img = adjust_image_for_display(pred_images['rendered_img'], rescale=False, trans2srgb=True)
@@ -172,6 +173,15 @@ def save_normal_images(path, filename, input_srgb, normal_gt, normal_pred, norma
         filename = os.path.join(path, filename)
     img_merge.save(filename)
 
+
+def convert_to_common_coordinate_system(img):
+    """ Convert the normal/lighting map to the commonly used coordinate system: x right, y up, z from screen to eyes
+    """
+    assert torch.is_tensor(img), 'The input image should be a tensor: C x H x W'
+    assert img.ndim == 3, 'The input image should be 3D tensor'
+    img = -img
+    img[0] = -img[0]
+    return img
 
 
 

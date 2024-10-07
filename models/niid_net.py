@@ -27,7 +27,7 @@ import torch.nn.functional as F
 
 from models import iid_net
 import models.Hu_nets.depth_net_from_Hu as normal_estimation_module
-
+import math
 
 class NIIDNet(nn.Module):
     _imagenet_stats = {'mean': [0.485, 0.456, 0.406],
@@ -50,22 +50,28 @@ class NIIDNet(nn.Module):
         self.stats_std = nn.Parameter(
             torch.Tensor(self._imagenet_stats['std']).float().view(1, 3, 1, 1), requires_grad=False)
 
-    def resize_input_img(self, input_img):
-        ratio = float(input_img.size(2)) / float(input_img.size(3))
-        if ratio > 1.73:
-            h, w = 320, 160 #512, 256
-        elif ratio < 1.0 / 1.73:
-            h, w = 160, 320 #256, 512
-        elif ratio > 1.41:
-            h, w = 384, 256
-        elif ratio < 1. / 1.41:
-            h, w = 256, 384
-        elif ratio > 1.15:
-            h, w = 320, 240 #512, 384
-        elif ratio < 1. / 1.15:
-            h, w = 240, 320 #384, 512
+    def resize_input_img(self, input_img, resize_input=True):
+        if resize_input:
+            ratio = float(input_img.size(2)) / float(input_img.size(3))
+            if ratio > 1.73:
+                h, w = 320, 160 #512, 256
+            elif ratio < 1.0 / 1.73:
+                h, w = 160, 320 #256, 512
+            elif ratio > 1.41:
+                h, w = 384, 256
+            elif ratio < 1. / 1.41:
+                h, w = 256, 384
+            elif ratio > 1.15:
+                h, w = 320, 240  # 512, 384
+            elif ratio < 1. / 1.15:
+                h, w = 240, 320  # 384, 512
+            else:
+                h, w = 320, 320  # 384, 384
         else:
-            h, w = 320, 320 #384, 384
+            # make sure the size is divisible by 32
+            DIVISOR = 32
+            h = math.ceil(input_img.size(2) / DIVISOR) * DIVISOR
+            w = math.ceil(input_img.size(3) / DIVISOR) * DIVISOR
         scaled_input_srgb = F.upsample(input_img, size=[h, w], mode='bilinear', align_corners=True)
         return scaled_input_srgb
 
@@ -81,13 +87,13 @@ class NIIDNet(nn.Module):
 
         return shading_intensity, rendered_out
 
-    def forward(self, input_srgb, pred_normal, pred_reflect, pred_shading):
+    def forward(self, input_srgb, pred_normal, pred_reflect, pred_shading, resize_input=True):
         if pred_reflect or pred_shading:
             pred_normal = True
 
         o_h = input_srgb.size(2)
         o_w = input_srgb.size(3)
-        scaled_input_srgb = self.resize_input_img(input_srgb)
+        scaled_input_srgb = self.resize_input_img(input_srgb, resize_input=resize_input)
 
         out_N = None
         if pred_normal:

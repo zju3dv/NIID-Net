@@ -9,7 +9,8 @@
 
 Updates
 -
-+ 16/April/2023: Migrated to Pytorch 1.7.1
++ 06/October/2024: Modified the visualization of output images.
++ 16/April/2023: Migrated to Pytorch 1.7.1.
 
 Dependencies
 -
@@ -17,7 +18,7 @@ Dependencies
 + PyTorch 1.7.1 (original [version](https://github.com/zju3dv/NIID-Net/tree/pytorch_0.3.1) using PyTorch 0.3.1)
 + torchvision 0.8.2
 + [Visdom](https://github.com/facebookresearch/visdom) 0.1.8.9 
-+ We provide the ```requirements.txt``` file for other dependencies.
++ We provide the ```tools/install.txt``` file for other dependencies.
 
 Datasets
 -
@@ -54,7 +55,8 @@ download their extracted NYU-v2 subset.
 + To compute surface normal maps,
   + install ```open3d==0.8.0``` 
   + ```python ./tools/data_preprocess_normal.py --dataset_dir {NYU_v2 dataset path}  --num_workers {number of processes}```
-
+  + For some historical reasons, the surface normal maps (*_normal.png) generated are in a left-handed coordinate system: 
+    x: left, y: up, z: from screen to viewer.
 
 Running
 -
@@ -74,15 +76,28 @@ Running
   + Note that only test mode supports CPU version (with ```gpu_devices=None```). 
   We recommend you to use the **GPU** version.
 + ##### Pre-trained model
-    [Google Drive](https://drive.google.com/file/d/160NzDEmC8okb6vgTNTyzmhaYa-Lqo-Ft/view?usp=sharing)
+  + [Google Drive](https://drive.google.com/file/d/160NzDEmC8okb6vgTNTyzmhaYa-Lqo-Ft/view?usp=sharing)
     (or [Baidu Net Disk](https://pan.baidu.com/s/1n45ZwuYZpUA8vp-9V-ca9Q) with code ```uj3n```)
+  + Download the pre-trained model to ```./pretrained_model/```
     
 + ##### Demo
   + ```python decompose.py```
-  + The default input and output directory is ```./examples/```
+    + The visualized intrinsic images are in linear RGB space. 
+      For sRGB images, add option ```--save_srgb```.
+    + The input images are resized to a default size, 
+      you can change the size by setting ```--resize_to_specified_size 1024```.
+    + This script automatically converts the output surface normals to this popular camera system:
+      + x: right, y: up, z: from screen to viewer
+
+
 + ##### Test
-  + ```python evaluate.py```
-  + The default output directory is ```./checkpoints/```
+  + ```python evaluate.py --func <function>```
+    + ```<function>``` can be ```test_iiw```, ```test_saw```
+    + The default output directory is ```./checkpoints/```
+  
++ #### Model size calculation
+  + ```python evaluate.py --func model_size```
+  
 + ##### Train
   + ```python train_IID.py```
 
@@ -90,12 +105,13 @@ Running
 Results
 - 
 #### Precomputed results
-- We provide visualized output on the SAW test set (note that SAW test data includes IIW test data and NYUv2 test data):
-[SAW_pred_imgs.zip](https://drive.google.com/file/d/18LI7CgTW0tVglF0u3Nirp1kZxca25iDJ/view?usp=sharing).
-And precision-recall measurements 
-([precision-recall_curves.zip](https://drive.google.com/file/d/1WhxxN5sSVLLoet1ruk9VHzh_r-WhfRfs/view?usp=sharing))
-which can be used to draw the precision-recall curves. 
-- If you want to compare on some applications (e.g., image editing), we strongly recommend using the original float32 output of the network
+- We provide results on the SAW test set (note that SAW test data includes IIW test data and NYUv2 test data):
+  - Visualized images (linear RGB space): [SAW_pred_imgs.zip](https://drive.google.com/file/d/10DOCkHGG4cWFyVwQ93eRAZhzYr1VT4Cf/view?usp=drive_link).
+  - Raw predictions (linear RGB space, float32): [SAW_raw_pred.zip](https://drive.google.com/file/d/10GjNa9jEB6vvL2kbCPNhAOunLQhOX-ax/view?usp=drive_link).
+  - Precision-recall measurements 
+  ([precision-recall_curves.zip](https://drive.google.com/file/d/1WhxxN5sSVLLoet1ruk9VHzh_r-WhfRfs/view?usp=sharing)), 
+  which can be used to draw the precision-recall curves. 
+- For comparison on some applications (e.g., image editing), we recommend using the original float32 output of the network
 instead of the 8-bit low-precision visualized images.
 
 
