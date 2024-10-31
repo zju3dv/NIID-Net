@@ -193,6 +193,7 @@ if __name__ == '__main__':
     args = parse_arguments()
 
     for data_dir in args.data_dirs:
+        data_dir = os.path.normpath(data_dir)
         decompose_images(data_dir,  # input directory
                          os.path.join(args.output_dir, os.path.basename(data_dir)),  # output directory
                          not args.not_save_individually,  # whether to save intrinsic image as separate images

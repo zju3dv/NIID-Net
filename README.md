@@ -95,7 +95,7 @@ Running
     + ```<function>``` can be ```test_iiw```, ```test_saw```
     + The default output directory is ```./checkpoints/```
   
-+ #### Model size calculation
++ ##### Model size calculation
   + ```python evaluate.py --func model_size```
   
 + ##### Train
@@ -105,12 +105,15 @@ Running
 Results
 - 
 #### Precomputed results
-- We provide results on the SAW test set (note that SAW test data includes IIW test data and NYUv2 test data):
-  - Visualized images (linear RGB space): [SAW_pred_imgs.zip](https://drive.google.com/file/d/10DOCkHGG4cWFyVwQ93eRAZhzYr1VT4Cf/view?usp=drive_link).
-  - Raw predictions (linear RGB space, float32): [SAW_raw_pred.zip](https://drive.google.com/file/d/10GjNa9jEB6vvL2kbCPNhAOunLQhOX-ax/view?usp=drive_link).
-  - Precision-recall measurements 
-  ([precision-recall_curves.zip](https://drive.google.com/file/d/1WhxxN5sSVLLoet1ruk9VHzh_r-WhfRfs/view?usp=sharing)), 
-  which can be used to draw the precision-recall curves. 
+- We provide precomputed results on the SAW and IIW test sets:
+  - SAW:
+    - Visualized images (linear RGB space): [SAW_pred_imgs.zip](https://drive.google.com/file/d/10DOCkHGG4cWFyVwQ93eRAZhzYr1VT4Cf/view?usp=drive_link).
+    - Raw predictions (linear RGB space, float32): [SAW_raw_pred.zip](https://drive.google.com/file/d/10OY2OtAqDd9l4COEZIF-lWsiu9L939Vy/view?usp=sharing).
+    - Precision-recall measurements 
+    ([precision-recall_curves.zip](https://drive.google.com/file/d/1WhxxN5sSVLLoet1ruk9VHzh_r-WhfRfs/view?usp=sharing)), 
+    which can be used to draw the precision-recall curves. 
+  - IIW:
+    - Visualized and raw predictions (linear RGB space): [IIW_test.zip](https://drive.google.com/file/d/10NHd0QwuY6JxDN3OGy7gzwyMpRtkRxgs/view?usp=sharing).
 - For comparison on some applications (e.g., image editing), we recommend using the original float32 output of the network
 instead of the 8-bit low-precision visualized images.
 
